@@ -218,3 +218,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Ciclope ---
+# Segredos e configuração local
+.env
+ciclope.toml
+firmware/olho/include/config.h
+
+# Vozes e modelos descarregados (grandes, e cada um descarrega os seus)
+vozes/
+*.onnx
+*.onnx.json
+*.gguf
+
+# Gravações de teste
+*.wav
+
+# PlatformIO
+firmware/olho/.pio/
+.vscode/

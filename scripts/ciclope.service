@@ -1,0 +1,30 @@
+# Arranca o Ciclope sozinho quando o Raspberry Pi liga.
+#
+# Antes de instalar, troca UTILIZADOR pelo teu nome de utilizador no Pi
+# (o que aparece em `whoami`) e confirma o caminho do Python do ambiente
+# conda (`conda activate ciclope && which python`).
+#
+# Instalar:
+#   sudo cp scripts/ciclope.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ciclope
+# Ver o que está a fazer:
+#   journalctl -u ciclope -f
+
+[Unit]
+Description=Ciclope, assistente de voz
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=UTILIZADOR
+WorkingDirectory=/home/UTILIZADOR/ciclope
+ExecStart=/home/UTILIZADOR/miniforge3/envs/ciclope/bin/python -m ciclope voz
+Environment=PYTHONUNBUFFERED=1
+Environment=GPIOZERO_PIN_FACTORY=lgpio
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

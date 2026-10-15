@@ -1,0 +1,114 @@
+# Configuração do Ciclope.
+#
+# Copia este ficheiro para ciclope.toml e ajusta. O ciclope.toml não vai para
+# o git (está no .gitignore), por isso podes pôr lá caminhos da tua máquina.
+#
+# As chaves de API NÃO vão aqui — vão no ficheiro .env (ver .env.example).
+
+[modelo]
+# Quem gera o texto das respostas:
+#   "anthropic" — API da Anthropic (precisa de ANTHROPIC_API_KEY no .env)
+#   "gemini"    — API da Google, tem nível gratuito (precisa de GOOGLE_API_KEY)
+#   "openai"    — qualquer servidor compatível com o formato da OpenAI:
+#                 llama-server ou Ollama no próprio Pi, OpenRouter, Groq, Mistral...
+fornecedor = "anthropic"
+
+# Nome do modelo. Vazio = o predefinido de cada fornecedor
+# (anthropic: claude-haiku-5-5 · gemini: gemini-3.5-flash-lite · openai: obrigatório).
+nome = ""
+
+# Limite máximo de tokens por resposta. É um travão de emergência, não o que
+# torna as respostas curtas — isso é a instrução no texto da personagem.
+max_tokens = 300
+
+# Quantas mensagens antigas se reenviam a cada pergunta (12 = seis trocas).
+# A API não tem memória: o histórico é reenviado inteiro de cada vez.
+historico = 12
+
+# Só para fornecedor = "openai". Exemplos:
+#   llama-server:  http://127.0.0.1:9931   (a porta predefinida mudou de 8080 para 9931)
+#   Ollama:        http://127.0.0.1:11434
+#   OpenRouter:    https://openrouter.ai/api
+#   Groq:          https://api.groq.com/openai
+url_base = "http://127.0.0.1:9931"
+
+# Só para fornecedor = "gemini". Os modelos Flash 3.x pensam antes de responder,
+# e esse pensamento gasta tokens e tempo. "low" ou "minimal" acelera; "" não envia.
+nivel_raciocinio = "low"
+
+
+[personagem]
+# Prompt de sistema: define quem o ciclope é e como fala.
+sistema = """És um ciclope antigo que vive numa caverna. As tuas respostas vão ser
+lidas em voz alta, por isso:
+- Responde sempre em português europeu de Portugal, tratando o interlocutor por tu. Nunca uses "você".
+- Sê breve: duas ou três frases, salvo se te pedirem detalhe.
+- Nada de listas, marcadores, tabelas, emojis ou markdown — só texto corrido.
+- Escreve os números por extenso."""
+
+
+[voz]
+# Caminho para o .onnx do Piper (o .onnx.json tem de estar ao lado).
+# Relativo a este ficheiro, ou absoluto.
+modelo = "vozes/pt_PT-tugão-medium.onnx"
+
+# Velocidade do Piper (length_scale): acima de 1 abranda, abaixo acelera.
+velocidade = 1.0
+
+# Cadeia de efeitos do SoX, aplicada depois do Piper. Lista vazia = sem efeitos.
+# Mete aqui os valores que afinaste para o teu ciclope.
+efeitos = ["speed", "0.92", "pitch", "-250", "reverb", "40", "50", "100"]
+
+
+[audio]
+# Dispositivos de som. Vazio = o predefinido do sistema.
+# Aceita parte do nome — corre `ciclope dispositivos` para ver os nomes.
+# No Pi com o reSpeaker: "seeed2micvoicec" nos dois.
+saida = ""
+entrada = ""
+
+
+[ouvidos]
+# Como se acorda o ciclope no modo `ciclope voz`:
+#   "palavra" — palavra de ativação (openWakeWord)
+#   "botao"   — botão do reSpeaker (só no Pi, com [hardware] respeaker = true)
+#   "enter"   — carregar Enter no terminal (útil para testar no Mac)
+ativacao = "enter"
+
+# Palavra de ativação: nome de um modelo pré-treinado do openWakeWord
+# ("hey_jarvis", "alexa", "hey_mycroft", "hey_rhasspy") ou caminho para um .onnx teu.
+palavra = "hey_jarvis"
+limiar_palavra = 0.5
+
+# Modelo do Whisper: "base" é rápido mas fraco em português; "small" é o
+# compromisso; "medium" é bom mas lento num Pi.
+whisper = "small"
+idioma = "pt"
+
+# Fim da fala: quantos milissegundos de silêncio contam como "acabei de falar".
+silencio_fim_ms = 800
+# Desiste se não ouvir fala nenhuma neste tempo depois de acordar.
+espera_max_s = 6
+# Corta gravações mais longas do que isto.
+fala_max_s = 15
+# Agressividade do detetor de voz (0 a 3). Mais alto = ignora mais ruído.
+agressividade_vad = 2
+
+
+[cara]
+# Servidor que alimenta o olho (ESP32 e simulador no browser).
+ativa = true
+porta_ws = 8765
+# Serve o simulador em http://<ip-do-pi>:porta_http (0 desliga).
+porta_http = 8080
+# Resolução temporal do envelope da fala, em milissegundos.
+janela_ms = 30
+
+
+[hardware]
+# Botão (GPIO17) e LEDs APA102 do reSpeaker 2-Mics Pi HAT. Só no Raspberry Pi.
+respeaker = false
+botao_gpio = 17
+leds = true
+# Brilho dos LEDs, de 0 a 31.
+brilho_leds = 6

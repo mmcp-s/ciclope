@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Olho do Ciclope</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --pedra: #2b2622;
+    --pedra-funda: #1f1b18;
+    --calcario: #d9cfc2;
+    --calcario-baco: #a89c8d;
+    --ambar: #f0a030;
+    --musgo: #7c9a5e;
+    --ferrugem: #b3412b;
+    /* Atualizados a cada fotograma pelo script: a cor e a força da luz do olho. */
+    --luz: 240, 160, 48;
+    --forca: 0.18;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    font-family: "Alegreya Sans", "Gill Sans", "Segoe UI", sans-serif;
+    font-size: 17px;
+    line-height: 1.45;
+    color: var(--calcario);
+    background:
+      radial-gradient(circle at 50% 38%, rgba(var(--luz), var(--forca)) 0, rgba(var(--luz), 0) 46vmax),
+      radial-gradient(ellipse at 50% 120%, var(--pedra-funda) 0, var(--pedra) 70%);
+    background-color: var(--pedra);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 16px 40px;
+  }
+  h1 {
+    font-weight: 500;
+    font-size: 1.35rem;
+    letter-spacing: 0.01em;
+    margin: 0 0 4px;
+  }
+  .ligacao {
+    color: var(--calcario-baco);
+    margin: 0 0 24px;
+    min-height: 1.45em;
+    text-align: center;
+  }
+  .ligacao .ponto {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--calcario-baco);
+    margin-right: 8px;
+    vertical-align: 1px;
+  }
+  .ligacao[data-estado="ligado"] .ponto { background: var(--musgo); }
+  .ligacao[data-estado="erro"] .ponto { background: var(--ferrugem); }
+
+  .moldura {
+    /* O ecrã é redondo: cortamos o canvas num círculo, como no hardware. */
+    width: min(420px, 82vw);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 10px #3a332d,
+      0 0 0 11px #4a4139,
+      0 18px 50px rgba(0, 0, 0, 0.55);
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  canvas.pixelado { image-rendering: pixelated; }
+
+  .controlos {
+    margin-top: 34px;
+    width: min(560px, 100%);
+    display: grid;
+    gap: 18px;
+  }
+  .grupo { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+  .grupo > span { color: var(--calcario-baco); margin-right: 4px; }
+
+  button, input {
+    font: inherit;
+    color: var(--calcario);
+    background: rgba(255, 245, 230, 0.05);
+    border: 1px solid rgba(217, 207, 194, 0.22);
+    border-radius: 999px;
+    padding: 6px 14px;
+  }
+  button { cursor: pointer; }
+  button:hover { background: rgba(255, 245, 230, 0.10); }
+  button[aria-pressed="true"] {
+    border-color: var(--ambar);
+    color: #fff3df;
+    background: rgba(240, 160, 48, 0.16);
+  }
+  input { border-radius: 8px; width: min(260px, 60vw); }
+  button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--ambar);
+    outline-offset: 2px;
+  }
+  .nota {
+    color: var(--calcario-baco);
+    font-size: 0.92rem;
+    text-align: center;
+    max-width: 52ch;
+    margin: 6px auto 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body { background-image: radial-gradient(ellipse at 50% 120%, var(--pedra-funda) 0, var(--pedra) 70%); }
+  }
+</style>
+</head>
+<body>
+  <h1>O olho do Ciclope</h1>
+  <p class="ligacao" id="ligacao" data-estado="desligado" aria-live="polite"><span class="ponto"></span><span id="ligacao-texto">A preparar…</span></p>
+
+  <div class="moldura"><canvas id="olho" width="480" height="480" aria-label="Olho animado do ciclope"></canvas></div>
+
+  <div class="controlos">
+    <div class="grupo" role="group" aria-label="Estado">
+      <span>Estado</span>
+      <button data-estado="inativo">Inativo</button>
+      <button data-estado="a_ouvir">A ouvir</button>
+      <button data-estado="a_pensar">A pensar</button>
+      <button data-estado="a_falar">A falar</button>
+      <button data-estado="erro">Erro</button>
+    </div>
+    <div class="grupo">
+      <button id="fala-teste">Simular uma fala</button>
+    </div>
+    <div class="grupo" role="group" aria-label="Ecrã">
+      <span>Ecrã</span>
+      <button data-ecra="240">1,28 polegadas (240 px)</button>
+      <button data-ecra="480">2,1 polegadas (480 px)</button>
+    </div>
+    <form class="grupo" id="form-ligacao">
+      <input id="endereco" spellcheck="false" aria-label="Endereço do Ciclope">
+      <button type="submit">Ligar</button>
+    </form>
+    <p class="nota">Os botões controlam o olho à mão. Quando o Ciclope está ligado, é ele que manda, e a próxima mensagem dele substitui o que escolheste.</p>
+  </div>
+
+<script>
+"use strict";
+/*
+ * O olho do Ciclope, desenhado num canvas.
+ *
+ * A lógica aqui é a mesma do firmware (firmware/olho/src/olho.cpp): os mesmos
+ * estados, as mesmas proporções, os mesmos tempos. Afinar a expressão aqui é
+ * muito mais rápido do que compilar e gravar o ESP32 — quando gostares, copia
+ * os números para o C++.
+ */
+
+// ---------- parâmetros de cada estado ----------
+// pupila: raio da pupila em fração do raio da íris
+// brilho: quanto a íris brilha (0 a 1)
+// palpebraCima/Baixo: quanto as pálpebras estão fechadas em repouso (0 a 1)
+const ESTADOS = {
+  inativo:  { pupila: 0.42, brilho: 0.25, palpebraCima: 0.10, palpebraBaixo: 0.04 },
+  a_ouvir:  { pupila: 0.56, brilho: 0.60, palpebraCima: 0.00, palpebraBaixo: 0.00 },
+  a_pensar: { pupila: 0.36, brilho: 0.45, palpebraCima: 0.20, palpebraBaixo: 0.06 },
+  a_falar:  { pupila: 0.42, brilho: 0.45, palpebraCima: 0.06, palpebraBaixo: 0.03 },
+  erro:     { pupila: 0.30, brilho: 0.20, palpebraCima: 0.45, palpebraBaixo: 0.20 },
+};
+
+const COR = {
+  esclera: [239, 230, 216],
+  escleraBorda: [185, 169, 145],
+  irisFora: [90, 30, 5],
+  irisDentro: [245, 160, 40],
+  irisErroFora: [80, 10, 5],
+  irisErroDentro: [230, 60, 40],
+  pupila: [20, 12, 6],
+  reflexo: [255, 248, 236],
+  pele: [92, 70, 58],
+  peleBorda: [60, 42, 34],
+};
+
+// ---------- estado da animação ----------
+const olho = {
+  estado: "inativo",
+  semLigacao: true,       // olho sonolento e sem cor até haver ligação ou controlo manual
+  // valores atuais (suavizados) e alvos
+  olharX: 0, olharY: 0, alvoX: 0, alvoY: 0,
+  pupila: 0.42, brilho: 0.25, cima: 0.10, baixo: 0.04, cor: 0,
+  proximoOlhar: 0,
+  piscarInicio: -1, proximoPiscar: 1.5,
+  pensarLado: 1,
+  // envelope da fala
+  env: null, envMs: 30, envInicio: 0,
+};
+
+const aleatorio = (a, b) => a + Math.random() * (b - a);
+const limitar = (x, a, b) => Math.min(b, Math.max(a, x));
+// Aproximação exponencial: cada fotograma anda uma fração do caminho até ao
+// alvo. tau é o tempo (s) para percorrer ~63% da distância.
+const aproximar = (atual, alvo, dt, tau) => atual + (alvo - atual) * (1 - Math.exp(-dt / tau));
+
+function definirEstado(estado) {
+  if (!ESTADOS[estado]) return;
+  olho.estado = estado;
+  olho.proximoOlhar = 0; // escolhe já um olhar adequado ao novo estado
+  document.querySelectorAll("[data-estado]").forEach(b => {
+    if (b.tagName === "BUTTON") b.setAttribute("aria-pressed", String(b.dataset.estado === estado));
+  });
+}
+
+function iniciarFala(env, ms, agora) {
+  olho.env = env;
+  olho.envMs = ms;
+  olho.envInicio = agora;
+}
+
+// Volume da fala neste instante (0 a 1), com interpolação entre amostras.
+function volumeAtual(agora) {
+  if (!olho.env || olho.env.length === 0) return 0;
+  const pos = (agora - olho.envInicio) * 1000 / olho.envMs;
+  if (pos >= olho.env.length - 1) { olho.env = null; return 0; }
+  const i = Math.floor(pos), f = pos - i;
+  return ((1 - f) * olho.env[i] + f * olho.env[i + 1]) / 255;
+}
+
+function escolherOlhar() {
+  switch (olho.estado) {
+    case "a_ouvir":  // atento: olha em frente, quase parado
+      return [aleatorio(-0.08, 0.08), aleatorio(-0.08, 0.06), aleatorio(0.6, 1.5)];
+    case "a_pensar": // alterna entre cima-esquerda e cima-direita
+      olho.pensarLado *= -1;
+      return [0.45 * olho.pensarLado, aleatorio(-0.55, -0.4), aleatorio(0.9, 1.6)];
+    case "a_falar":
+      return [aleatorio(-0.2, 0.2), aleatorio(-0.15, 0.15), aleatorio(1.0, 2.5)];
+    case "erro":
+      return [aleatorio(-0.1, 0.1), 0.3, aleatorio(2, 4)];
+    default:         // inativo: deriva pelo espaço
+      return [aleatorio(-0.55, 0.55), aleatorio(-0.45, 0.45), aleatorio(1.5, 4.0)];
+  }
+}
+
+function atualizar(agora, dt) {
+  const p = ESTADOS[olho.estado];
+
+  // Olhar: movimentos rápidos (sacadas) para pontos escolhidos a intervalos irregulares.
+  if (agora >= olho.proximoOlhar) {
+    const [x, y, espera] = escolherOlhar();
+    olho.alvoX = x; olho.alvoY = y;
+    olho.proximoOlhar = agora + espera;
+  }
+  olho.olharX = aproximar(olho.olharX, olho.alvoX, dt, 0.06);
+  olho.olharY = aproximar(olho.olharY, olho.alvoY, dt, 0.06);
+
+  // Fala: a pupila contrai e a íris acende com o volume.
+  const v = volumeAtual(agora);
+  const alvoPupila = p.pupila - 0.12 * v;
+  const alvoBrilho = olho.estado === "a_falar" ? p.brilho + 0.55 * v : p.brilho;
+  olho.pupila = aproximar(olho.pupila, alvoPupila, dt, 0.25);
+  olho.brilho = aproximar(olho.brilho, alvoBrilho, dt, 0.08);
+  olho.cor = aproximar(olho.cor, olho.estado === "erro" ? 1 : 0, dt, 0.3);
+
+  // Pálpebras em repouso; sem ligação, o olho fica sonolento.
+  const sono = olho.semLigacao ? 0.3 : 0;
+  olho.cima = aproximar(olho.cima, Math.max(p.palpebraCima, sono), dt, 0.15);
+  olho.baixo = aproximar(olho.baixo, p.palpebraBaixo, dt, 0.15);
+
+  // Piscar: fecha em 40% do tempo, abre nos restantes 60%. Às vezes duas vezes.
+  if (olho.piscarInicio < 0 && agora >= olho.proximoPiscar) {
+    olho.piscarInicio = agora;
+  }
+  let piscar = 0;
+  if (olho.piscarInicio >= 0) {
+    const t = (agora - olho.piscarInicio) / 0.16;
+    if (t >= 1) {
+      olho.piscarInicio = -1;
+      olho.proximoPiscar = agora + (Math.random() < 0.2 ? 0.12 : aleatorio(2, 6));
+    } else {
+      piscar = t < 0.4 ? t / 0.4 : 1 - (t - 0.4) / 0.6;
+    }
+  }
+  return { piscar };
+}
+
+// ---------- desenho ----------
+const tela = document.getElementById("olho");
+const ctx = tela.getContext("2d");
+
+function misturar(a, b, t) { return a.map((x, i) => x + (b[i] - x) * t); }
+function dessaturar(c, t) {
+  const cinza = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+  return c.map(x => x + (cinza - x) * t);
+}
+function css(c) { return `rgb(${c.map(x => Math.round(limitar(x, 0, 255))).join(",")})`; }
+
+function circulo(x, y, r, cor) {
+  ctx.fillStyle = css(cor);
+  ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2); ctx.fill();
+}
+function elipse(x, y, rx, ry, cor) {
+  ctx.fillStyle = css(cor);
+  ctx.beginPath(); ctx.ellipse(x, y, Math.max(0, rx), Math.max(0, ry), 0, 0, Math.PI * 2); ctx.fill();
+}
+function retangulo(x, y, w, h, cor) {
+  ctx.fillStyle = css(cor);
+  ctx.fillRect(x, y, w, h);
+}
+
+function desenhar({ piscar }) {
+  const W = tela.width, R = W / 2, cx = R, cy = R;
+  const IR = 0.48 * R;                 // raio da íris
+  const D = R - IR - 0.06 * R;         // quanto a íris se pode afastar do centro
+  const ix = cx + olho.olharX * D, iy = cy + olho.olharY * D;
+  const sat = olho.semLigacao ? 0.75 : 0;
+
+  // Esclera, com a borda mais escura a dar volume (três círculos sobrepostos).
+  circulo(cx, cy, R, COR.escleraBorda);
+  circulo(cx, cy, R * 0.97, misturar(COR.escleraBorda, COR.esclera, 0.5));
+  circulo(cx, cy, R * 0.93, COR.esclera);
+
+  // Íris: dez anéis do escuro (fora) para o claro (dentro). O primeiro é a
+  // orla escura que as íris reais têm. O expoente 0,6 faz o claro chegar cedo.
+  const g = 0.55 + 0.45 * olho.brilho;
+  const fora = misturar(COR.irisFora, COR.irisErroFora, olho.cor);
+  const dentro = misturar(COR.irisDentro, COR.irisErroDentro, olho.cor);
+  const ANEIS = 10;
+  for (let k = 0; k < ANEIS; k++) {
+    const t = Math.pow(k / (ANEIS - 1), 0.6);
+    const orla = k === 0 ? 0.55 : 1;
+    const c = misturar(fora, dentro, t).map(x => x * g * orla);
+    circulo(ix, iy, IR * (1 - 0.055 * k), dessaturar(c, sat));
+  }
+
+  // Pupila e reflexos.
+  circulo(ix, iy, IR * olho.pupila, COR.pupila);
+  circulo(ix - IR * 0.35, iy - IR * 0.38, IR * 0.14, COR.reflexo);
+  circulo(ix + IR * 0.25, iy + IR * 0.30, IR * 0.06, COR.reflexo);
+
+  // Pálpebras: a de cima desce até um pouco abaixo do centro, a de baixo sobe.
+  // Cada uma é um retângulo com uma elipse na ponta, para a borda ser curva.
+  const cima = Math.max(olho.cima, piscar), baixo = Math.max(olho.baixo, piscar);
+  const yCima = cy - R + cima * 1.1 * R;
+  const yBaixo = cy + R - baixo * 0.9 * R;
+  const cc = R * 0.35 * (1 - 0.5 * cima), cb = R * 0.25;
+  const borda = Math.max(2, W / 120);
+  for (const [cor, d] of [[COR.peleBorda, borda], [COR.pele, 0]]) {
+    retangulo(0, 0, W, yCima - cc + d, cor);
+    elipse(cx, yCima - cc, R * 1.15, cc + d, cor);
+    retangulo(0, yBaixo + cb - d, W, W, cor);
+    elipse(cx, yBaixo + cb, R * 1.15, cb + d, cor);
+  }
+
+  // A parede da caverna recebe a luz do olho.
+  const luz = dessaturar(dentro, sat);
+  document.documentElement.style.setProperty("--luz", luz.map(Math.round).join(","));
+  document.documentElement.style.setProperty("--forca", (0.06 + 0.26 * olho.brilho * (1 - sat)).toFixed(3));
+}
+
+let anterior = performance.now() / 1000;
+function ciclo() {
+  const agora = performance.now() / 1000;
+  const dt = Math.min(0.1, agora - anterior);
+  anterior = agora;
+  desenhar(atualizar(agora, dt));
+  requestAnimationFrame(ciclo);
+}
+
+// ---------- ligação ao Ciclope ----------
+const ligacaoEl = document.getElementById("ligacao");
+const ligacaoTexto = document.getElementById("ligacao-texto");
+const enderecoEl = document.getElementById("endereco");
+let ws = null, tentarDeNovo = null;
+
+async function enderecoPredefinido() {
+  const pedido = new URLSearchParams(location.search).get("ws");
+  if (pedido) return pedido;
+  // Servido pelo Ciclope (http://ip-do-pi:8080): o WebSocket está na mesma
+  // máquina, e o /ciclope.json diz em que porta.
+  const host = location.hostname || "localhost";
+  let porta = 8765;
+  if (location.protocol.startsWith("http")) {
+    try {
+      const r = await fetch("/ciclope.json");
+      if (r.ok) porta = (await r.json()).porta_ws || porta;
+    } catch { /* aberto de outro servidor: fica a porta por omissão */ }
+  }
+  return `ws://${host}:${porta}`;
+}
+
+function mostrarLigacao(estado, texto) {
+  ligacaoEl.dataset.estado = estado;
+  ligacaoTexto.textContent = texto;
+}
+
+function ligar(endereco) {
+  clearTimeout(tentarDeNovo);
+  if (ws) { ws.onclose = null; ws.close(); }
+  mostrarLigacao("desligado", `A procurar o Ciclope em ${endereco}`);
+  try {
+    ws = new WebSocket(endereco);
+  } catch {
+    mostrarLigacao("erro", `Endereço inválido: ${endereco}`);
+    return;
+  }
+  let esteveLigado = false;
+  ws.onopen = () => {
+    esteveLigado = true;
+    olho.semLigacao = false;
+    mostrarLigacao("ligado", `Ligado ao Ciclope em ${endereco}`);
+  };
+  ws.onmessage = (evento) => {
+    let m;
+    try { m = JSON.parse(evento.data); } catch { return; }
+    const agora = performance.now() / 1000;
+    if (m.t === "ola" || m.t === "estado") definirEstado(m.t === "ola" ? m.estado : m.v);
+    else if (m.t === "fala" && Array.isArray(m.env)) iniciarFala(m.env, m.ms || 30, agora);
+  };
+  ws.onclose = () => {
+    // Só volta a sonolento se a ligação caiu depois de estar feita — as
+    // tentativas falhadas não estragam o controlo à mão sem Ciclope.
+    if (esteveLigado) {
+      olho.semLigacao = true;
+      definirEstado("inativo");
+    }
+    mostrarLigacao("desligado", `Sem ligação a ${endereco}. Nova tentativa daqui a 3 segundos.`);
+    tentarDeNovo = setTimeout(() => ligar(endereco), 3000);
+  };
+}
+
+// ---------- controlos ----------
+document.querySelectorAll("button[data-estado]").forEach(b => b.addEventListener("click", () => {
+  olho.semLigacao = false;
+  definirEstado(b.dataset.estado);
+}));
+
+function envelopeSintetico(segundos, ms) {
+  const env = [], total = Math.round(segundos * 1000 / ms);
+  while (env.length < total) {
+    const silaba = 4 + Math.floor(Math.random() * 5), pico = 150 + Math.random() * 105;
+    for (let i = 0; i < silaba; i++) env.push(Math.round(pico * Math.sin(Math.PI * (i + 0.5) / silaba)));
+    const pausa = 1 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < pausa; i++) env.push(Math.round(Math.random() * 25));
+  }
+  return env.slice(0, total);
+}
+
+document.getElementById("fala-teste").addEventListener("click", () => {
+  olho.semLigacao = false;
+  const segundos = 3;
+  definirEstado("a_falar");
+  iniciarFala(envelopeSintetico(segundos, 30), 30, performance.now() / 1000);
+  setTimeout(() => { if (olho.estado === "a_falar" && !olho.env) definirEstado("inativo"); }, segundos * 1000 + 300);
+});
+
+function definirEcra(lado) {
+  tela.width = tela.height = lado;
+  tela.classList.toggle("pixelado", lado < 300);
+  document.querySelectorAll("button[data-ecra]").forEach(b =>
+    b.setAttribute("aria-pressed", String(Number(b.dataset.ecra) === lado)));
+}
+document.querySelectorAll("button[data-ecra]").forEach(b =>
+  b.addEventListener("click", () => definirEcra(Number(b.dataset.ecra))));
+
+document.getElementById("form-ligacao").addEventListener("submit", (e) => {
+  e.preventDefault();
+  ligar(enderecoEl.value.trim());
+});
+
+// ---------- arranque ----------
+definirEcra(480);
+definirEstado("inativo");
+requestAnimationFrame(ciclo);
+enderecoPredefinido().then((endereco) => {
+  enderecoEl.value = endereco;
+  ligar(endereco);
+});
+</script>
+</body>
+</html>
